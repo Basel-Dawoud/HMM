@@ -66,7 +66,7 @@ The code implements a custom memory allocator using a simulated heap represented
                                         End                   | End             |
                                                               +-----------------+
                               
-                              ```
+```
 
 ## Implementation of the free list
 
