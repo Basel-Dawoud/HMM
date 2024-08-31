@@ -4,24 +4,6 @@
 
 This repository contains a simulation of a heap memory management system. It includes functionality for allocating and freeing memory blocks from a simulated heap using a custom memory management algorithm. The core functionality revolves around maintaining a linked list of free memory blocks and managing these blocks through allocation and deallocation processes.
 
-## Table of Contents
-
-1. [Description](#description)
-2. [Heap Structure](#heap-structure)
-3. [Functions](#functions)
-    - [sbreak](#sbreak)
-    - [freeListInit](#freelistinit)
-    - [insertend](#insertend)
-    - [mergeNodes](#mergenodes)
-    - [addafternode](#addafternode)
-    - [split](#split)
-    - [firstFit](#firstfit)
-    - [HmmAlloc](#hmalloc)
-    - [HmmFree](#hmfree)
-4. [Usage](#usage)
-5. [Testing](#testing)
-6. [Contribution](#contribution)
-7. [License](#license)
 
 ## Description
 
