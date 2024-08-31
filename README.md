@@ -1,7 +1,4 @@
 
-
-https://github.com/user-attachments/assets/e3200387-029b-493f-8eb8-8425cca6a464
-
 # Heap Memory Allocator System (HMM)
 
 ## Overview
@@ -12,6 +9,178 @@ This repository contains a simulation of a heap memory management system. It inc
 ## Description
 
 The code implements a custom memory allocator using a simulated heap represented by a static array. It supports dynamic memory allocation and deallocation with a first-fit strategy. The implementation maintains a free list of memory blocks and supports merging of adjacent free blocks to optimize memory usage.
+
+### **Flow Chart Diagram**
+
+```
++-------------------+
+|       Start       |
++-------------------+
+          |
+          v
++-------------------+
+| Initialize HMM    |
+| - Static Array    |
+| - Simulated Break |
++-------------------+
+          |
+          v
++--------------------------+
+| User Request for Memory  |
++--------------------------+
+          |
+          v
+   +---------------------------+
+   |   Is there enough space?  |
+   +---------------------------+
+     | No                     | Yes
+     v                        v
++-------------------+    +---------------------------+
+| Error Handling    |    | Allocate Memory           |
+| - Output Error    |    +---------------------------+
++-------------------+                |
+          |                          |
+          v                          v
+        End            +----------------------------+
+                       | Update Simulated Break     |
+                       | Return Pointer to Memory   |
+                       +----------------------------+
+                                 |
+                                 v
+            +-------------------------------------+
+            | User Request to Free Memory         |
+            +-------------------------------------+
+                       |
+                       v
+        +-----------------------------+
+         | Is the pointer valid?     |
+        +-----------------------------+
+           | No                      | Yes
+           v                         v
+  +-------------------+    +----------------------------+
+  | Error Handling    |    | Free Memory (no-op in phase)|
+  | - Output Error    |    +----------------------------+
+  +-------------------+                |
+           |                           v
+           v                    +-----------------+
+          End                   | End             |
+                                +-----------------+
+
+```
+
+## Implementation of the free list
+
+
+When implementing a free list for a heap memory manager, the choice between managing the heap as a single free node initially versus splitting it into multiple nodes right away has important implications for efficiency and complexity. Here’s a breakdown of both approaches to help you determine which might be better for your specific use case:
+
+### 1. **Single Free Node (Initial Block) Approach**
+
+**Description**:
+
+- **Initial State**: The entire memory between the base and the program break is managed as a single free node.
+- **On Allocation**: When `malloc` is called, this single free node is split into two nodes: one node of the requested block size and another node for the remaining free space.
+
+**Advantages**:
+
+- **Simplicity**: Initially managing memory as a single free node simplifies the setup. You start with one free block and only need to handle splitting when allocation occurs.
+- **Reduced Overhead**: Fewer nodes to manage initially means reduced complexity in the early stages of memory management.
+
+**Disadvantages**:
+
+- **Potentially Inefficient Splitting**: If the free space is large, the initial allocation might result in splitting large blocks into many small fragments. This could lead to fragmentation and inefficient use of memory over time.
+- **Handling Large Allocations**: If a large block is requested, and the initial single free node is split, the remaining free space might become fragmented and harder to manage.
+
+**Example**:
+
+```c
+#define INITIAL_BLOCK_SIZE 64  // Example block size
+
+void initHeap() {
+    // Split memory into smaller blocks and create nodes
+    // Insert them into the free list
+}
+
+void *HmmAlloc(size_t size) {
+    // Find suitable free node and allocate
+    // Split node if necessary
+}
+```
+
+### Comparison and Recommendations
+
+**Choosing the Best Approach**:
+
+- **Single Free Node (Initial Block)**:
+    - **Best For**: Simpler implementations or when starting with a known large free area.
+    - **Considerations**: Suitable for scenarios where you expect relatively straightforward allocation patterns and can handle the potential for fragmentation over time.
+- **Multiple Free Nodes (Pre-Split Blocks)**:
+    - **Best For**: More complex systems where you want to minimize fragmentation from the start and can handle the complexity of managing multiple nodes.
+    - **Considerations**: Ideal for scenarios with varying allocation sizes and when fine-tuning memory management is critical.
+
+**In Practice**:
+
+- Many real-world memory managers, such as those in modern operating systems and libraries, use a combination of both approaches. They might start with a single large block and then progressively manage smaller blocks as needed, incorporating sophisticated techniques to minimize fragmentation and optimize performance.
+
+**Recommendation**:
+
+- **Start Simple**: Begin with the single free node approach to get a working implementation. This is easier to understand and manage initially.
+- **Iterate and Optimize**: As your implementation stabilizes, consider evolving towards a more sophisticated approach if you encounter performance or fragmentation issues.
+
+By starting simple and gradually adding complexity based on your needs, you can effectively balance between manageability and performance.
+
+## Implementation of free()
+
+In order to add the block to the (doubly linked) free list, free() uses the bytes of the block itself
+
+→ Get the block length allocated and set by malloc().
+
+→ Construct the free blocks list.
+
+![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/31b25afe-1308-43c2-b018-10a9181a8154/bfb53acf-a482-473b-ab79-15ea1134957f/image.png)
+
+→ The blocks of the free list will become intermingled with blocks of allocated, in-use memory:
+
+![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/31b25afe-1308-43c2-b018-10a9181a8154/d97ff8ea-43f2-4f70-8bda-77d97ec99035/image.png)
+
+## Surviving Rules in Dynamic memory Allocation
+
+→ DO NOT touch any memory outside the allocated block range.
+
+→ DO NOT free an allocated block twice.
+
+→ Free with the same pointer returned from malloc. NOT with offset.
+
+→ Free the allocated memory.
+
+### Common Causes of Incorrect Length Modification
+
+1. **Pointer Arithmetic Errors**: Incorrect calculations or manipulations involving pointers can lead to unintended changes in memory locations.
+2. **Buffer Overflows**: Writing beyond the allocated memory bounds can corrupt adjacent memory, including metadata that tracks the size of allocated blocks.
+3. **Dangling Pointers**: Using pointers after the memory they point to has been freed can lead to unpredictable behavior, including modifying memory block lengths.
+4. **Memory Corruption**: Bugs in the program that overwrite memory can inadvertently change the length values of allocated blocks.
+
+
+## Implementation of malloc()
+
+It first scans the list of memory blocks previously released by free() in order to find one whose size is larger than or equal to its requirements. 
+→ Search for the free blocks for a good candidate (first-fit, best-fit, etc.).
+
+If the block is exactly the right size, then it is returned to the caller. 
+If it is larger, then it is split, so that a block of the correct size is returned to the caller and a smaller free block is left on the free list.
+
+→ Split the block if its size is larger than needed.
+
+ 
+If no block on the free list is large enough, then malloc() calls sbrk() to allocate more memory. 
+
+→ Call sbrk() if no free block matching (with larger size).
+
+How free() will know the size of the block?
+
+→ When malloc() allocates the block, it allocates extra bytes to hold an integer containing the size of the block.
+
+![image](https://github.com/user-attachments/assets/1583338c-e058-4aec-bc78-700e57f79728)
+
 
 ## Heap Structure
 
@@ -144,6 +313,12 @@ int main() {
 ## Testing
 
 The repository includes a stress_test and test2 for random allocation and deallocation scenarios. To run the tests, compile the source code and execute the test program.
+
+
+
+https://github.com/user-attachments/assets/6d6f3a6d-4479-4000-9498-6ce88c3ac70b
+
+
 
 
 https://github.com/user-attachments/assets/59c53a3e-8a7d-4a68-90a7-87bf34d8096c
