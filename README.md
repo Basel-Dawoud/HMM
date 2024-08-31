@@ -13,60 +13,60 @@ The code implements a custom memory allocator using a simulated heap represented
 ### **Flow Chart Diagram**
 
 ```
-+-------------------+
-|       Start       |
-+-------------------+
-          |
-          v
-+-------------------+
-| Initialize HMM    |
-| - Static Array    |
-| - Simulated Break |
-+-------------------+
-          |
-          v
-+--------------------------+
-| User Request for Memory  |
-+--------------------------+
-          |
-          v
-   +---------------------------+
-   |   Is there enough space?  |
-   +---------------------------+
-     | No                     | Yes
-     v                        v
-+-------------------+    +---------------------------+
-| Error Handling    |    | Allocate Memory           |
-| - Output Error    |    +---------------------------+
-+-------------------+                |
-          |                          |
-          v                          v
-        End            +----------------------------+
-                       | Update Simulated Break     |
-                       | Return Pointer to Memory   |
-                       +----------------------------+
-                                 |
-                                 v
-            +-------------------------------------+
-            | User Request to Free Memory         |
-            +-------------------------------------+
-                       |
-                       v
-        +-----------------------------+
-         | Is the pointer valid?     |
-        +-----------------------------+
-           | No                      | Yes
-           v                         v
-  +-------------------+    +----------------------------+
-  | Error Handling    |    | Free Memory (no-op in phase)|
-  | - Output Error    |    +----------------------------+
-  +-------------------+                |
-           |                           v
-           v                    +-----------------+
-          End                   | End             |
-                                +-----------------+
-
-```
+                              +-------------------+
+                              |       Start       |
+                              +-------------------+
+                                        |
+                                        v
+                              +-------------------+
+                              | Initialize HMM    |
+                              | - Static Array    |
+                              | - Simulated Break |
+                              +-------------------+
+                                        |
+                                        v
+                              +--------------------------+
+                              | User Request for Memory  |
+                              +--------------------------+
+                                        |
+                                        v
+                                 +---------------------------+
+                                 |   Is there enough space?  |
+                                 +---------------------------+
+                                   | No                     | Yes
+                                   v                        v
+                              +-------------------+    +---------------------------+
+                              | Error Handling    |    | Allocate Memory           |
+                              | - Output Error    |    +---------------------------+
+                              +-------------------+                |
+                                        |                          |
+                                        v                          v
+                                      End            +----------------------------+
+                                                     | Update Simulated Break     |
+                                                     | Return Pointer to Memory   |
+                                                     +----------------------------+
+                                                               |
+                                                               v
+                                          +-------------------------------------+
+                                          | User Request to Free Memory         |
+                                          +-------------------------------------+
+                                                     |
+                                                     v
+                                      +-----------------------------+
+                                       | Is the pointer valid?     |
+                                      +-----------------------------+
+                                         | No                      | Yes
+                                         v                         v
+                                +-------------------+    +----------------------------+
+                                | Error Handling    |    | Free Memory (no-op in phase)|
+                                | - Output Error    |    +----------------------------+
+                                +-------------------+                |
+                                         |                           v
+                                         v                    +-----------------+
+                                        End                   | End             |
+                                                              +-----------------+
+                              
+                              ```
 
 ## Implementation of the free list
 
@@ -136,11 +136,11 @@ In order to add the block to the (doubly linked) free list, free() uses the byte
 
 → Construct the free blocks list.
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/31b25afe-1308-43c2-b018-10a9181a8154/bfb53acf-a482-473b-ab79-15ea1134957f/image.png)
+![image](https://github.com/user-attachments/assets/f4e55896-64d9-4edc-a08b-a92aa7fbc0d7)
 
 → The blocks of the free list will become intermingled with blocks of allocated, in-use memory:
 
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/31b25afe-1308-43c2-b018-10a9181a8154/d97ff8ea-43f2-4f70-8bda-77d97ec99035/image.png)
+![image](https://github.com/user-attachments/assets/8a74b07b-29ab-4a33-bdf3-7ae557660013)
 
 ## Surviving Rules in Dynamic memory Allocation
 
@@ -317,11 +317,6 @@ The repository includes a stress_test and test2 for random allocation and deallo
 
 
 https://github.com/user-attachments/assets/6d6f3a6d-4479-4000-9498-6ce88c3ac70b
-
-
-
-
-https://github.com/user-attachments/assets/59c53a3e-8a7d-4a68-90a7-87bf34d8096c
 
 
 
