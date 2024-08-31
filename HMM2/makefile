@@ -1,28 +1,18 @@
-# Compiler and Flags
 CC = gcc
-CFLAGS = -Wall -Wextra -fPIC
+CFLAGS = -Wall -fPIC
 LDFLAGS = -shared
 
-# File Names
-LIBRARY = libhmm
-LIBRARY_SO = $(LIBRARY).so
-OBJECTS = heap.o
+# Targets
+all: libhmm.so test_hmm
 
-# Default target
-all: $(LIBRARY_SO)
+libhmm.so: HMM.o
+	$(CC) $(LDFLAGS) -o $@ $^
 
-# Build the shared library
-$(LIBRARY_SO): $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJECTS)
+HMM.o: HMM.c heap.h
+	$(CC) $(CFLAGS) -c HMM.c
 
-# Compile source files into object files
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+test_hmm: test_hmm.c libhmm.so
+	$(CC) -o $@ $^ -ldl
 
-# Clean up build artifacts
 clean:
-	rm -f $(OBJECTS) $(LIBRARY_SO)
-
-# Phony targets
-.PHONY: all clean
-
+	rm -f *.o *.so test_hmm
