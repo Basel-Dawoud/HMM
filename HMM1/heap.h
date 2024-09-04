@@ -1,34 +1,38 @@
-#ifndef HMM_APIS_H
-#define HMM_APIS_H
+#ifndef HEAP_H
+#define HEAP_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-#define VHEAP_MAX_SIZE (1024 * 1024 * 1024) /* 1GB */
-#define PAGE 4096 /* 4KB page size for demonstration */
-#define META_DATA_SIZE sizeof(size_t)
+// Define the page size
+#define PAGE (4096)
+#define VHEAP_MAX_SIZE (1024 * 1024 * 1024)
+#define META_DATA_SIZE sizeof(fnode)
 
-/* Structure of a free node in the free list */
-typedef struct freeNode {
-    size_t length;         /* Size of the free block */
-    struct freeNode* prev; /* Pointer to the previous free block */
-    struct freeNode* next; /* Pointer to the next free block */
+// Free node structure
+typedef struct fnode {
+    size_t length;        // Length of the block
+    struct fnode *prev;   // Pointer to the previous free node
+    struct fnode *next;   // Pointer to the next free node
 } fnode;
 
-void *sbreak(intptr_t increment);
-
+// Function prototypes
+void* sbreak(size_t increment);
 void freeListInit(void);
-
-void* addfnode(fnode* node);
-
-void *mergeNodes(void);
-
+int insertend(void);
+void mergeNodes(void);
+void* addafternode(fnode* node);
 void split(fnode* node, size_t blockSize);
+void* firstFit(size_t blockSize);
+void* HmmAlloc(size_t blockSize);
+void HmmFree(void* ptr);
+void* Hmmcalloc(size_t nmemb, size_t size);
+void* HmmRealloc(void* ptr, size_t size);
+void printFreeList();
+// Standard library function wrappers
+void* malloc(size_t size);
+void free(void* ptr);
+void* calloc(size_t nmemb, size_t size);
+void* realloc(void* ptr, size_t size);
 
-void *firstFit(size_t blockSize);
-
-void *HmmAlloc(size_t blockSize);
-
-void HmmFree(void *ptr);
-
-#endif /* HMM_APIS_H */
+#endif // HEAP_H
