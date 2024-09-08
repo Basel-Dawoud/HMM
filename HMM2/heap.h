@@ -1,48 +1,40 @@
-#ifndef HMM_APIS_H
-#define HMM_APIS_H
+#ifndef HEAP_H
+#define HEAP_H
 
 #include <stddef.h>
 #include <stdint.h>
 
+// Define the page size
+#define PAGE (4056)
+#define VHEAP_MAX_SIZE (1024 * 1024 * 1024)
+#define META_DATA_SIZE sizeof(fnode)
 
-/* Define heap size and page size */
-#define VHEAP_MAX_SIZE (1024*1024*1024) /* Total size of the virtual heap */
-#define PAGE (4096) /* 4KB page size for demonstration */
-#define META_DATA_SIZE sizeof(fnode) /* Size of metadata for each free node */
-
-
-/* Structure of a free node in the free list */
-typedef struct freeNode {
-    size_t length;         /* Size of the free block */
-    struct freeNode* prev; /* Pointer to the previous free block */
-    struct freeNode* next; /* Pointer to the next free block */
+// Free node structure
+typedef struct fnode {
+    size_t length;        // Length of the block
+    struct fnode *prev;   // Pointer to the previous free node
+    struct fnode *next;   // Pointer to the next free node
 } fnode;
 
-void *sbreak(intptr_t increment);
-
+// Function prototypes
+void* sbreak(size_t increment);
 void freeListInit(void);
-
-void* addfnode(fnode* node);
-
+int insertend(int pagesNeeded);
 void mergeNodes(void);
-
+void* addafternode(fnode* node);
 void split(fnode* node, size_t blockSize);
-
-void *firstFit(size_t blockSize);
-
-void *HmmAlloc(size_t blockSize);
-
-void HmmFree(void *ptr);
-
-// Print the free list to check initial state
+void* firstFit(size_t blockSize);
+void* HmmAlloc(size_t blockSize);
+void HmmFree(void* ptr);
+void* HmmCalloc(size_t nmemb, size_t size);
+void* HmmRealloc(void* ptr, size_t size);
 void printFreeList();
+void *refirstFit(size_t blockSize);
 
-void insertend(size_t neweSize);
+// Standard library function wrappers
+void* malloc(size_t size);
+void free(void* ptr);
+void* calloc(size_t nmemb, size_t size);
+void* realloc(void* ptr, size_t size);
 
-void splitAllocNode(fnode* node, size_t blockSize);
-
-void *calloc(size_t nmemb, size_t size);
-
-void *realloc(void *ptr, size_t size);
-
-#endif /* HMM_APIS_H */
+#endif // HEAP_H
