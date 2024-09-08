@@ -319,4 +319,123 @@ The repository includes a stress_test and test2 for random allocation and deallo
 https://github.com/user-attachments/assets/6d6f3a6d-4479-4000-9498-6ce88c3ac70b
 
 
+Here’s a detailed `README` file for Version 2 of the HMM library, providing an overview of the library, instructions for building and using it, and a description of the implemented functions:
 
+---
+
+# Heap Memory Manager (Version 2)
+
+## Overview
+
+The HMM (Heap Memory Manager) library is a custom dynamic memory allocator implemented in C. It provides a minimalistic memory management system that replaces standard libc functions (`malloc`, `free`, `calloc`, `realloc`) with a custom implementation. This version of HMM uses `sbrk()` to manage heap memory directly and includes improved memory management and error handling features.
+
+## Features
+
+- **Custom Allocation Functions**: Replaces standard `malloc`, `free`, `calloc`, and `realloc` with custom implementations.
+- **Heap Expansion**: Uses `sbrk()` to dynamically adjust the heap size.
+- **Free List Management**: Maintains a linked list of free blocks to optimize allocation.
+- **Memory Initialization**: Initializes memory blocks and manages fragmentation.
+- **Error Handling**: Includes checks for memory allocation errors and boundary conditions.
+
+## Building the Library
+
+To build the HMM library, you can use the provided `Makefile`. Follow these steps:
+
+1. **Create the Makefile**: Use the provided `Makefile` to compile the HMM library. It will produce a shared library that can be preloaded.
+
+2. **Makefile Content**:
+
+    ```makefile
+    # Makefile for HMM Library
+
+    CC = gcc
+    CFLAGS = -Wall -Wextra -fPIC
+    LDFLAGS = -shared
+    TARGET = libhmm.so
+    SOURCES = HMM.c
+    OBJECTS = $(SOURCES:.c=.o)
+
+    all: $(TARGET)
+
+    $(TARGET): $(OBJECTS)
+        $(CC) $(LDFLAGS) -o $@ $^
+
+    %.o: %.c
+        $(CC) $(CFLAGS) -c -o $@ $<
+
+    clean:
+        rm -f $(TARGET) $(OBJECTS)
+    ```
+
+3. **Build the Library**:
+
+    ```bash
+    make
+    ```
+
+    This command will generate the shared library `libhmm.so`.
+
+## Using the Library
+
+To use the HMM library, follow these steps:
+
+1. **Preload the Library**: Use the `LD_PRELOAD` environment variable to load the HMM library before other shared libraries. This allows you to replace standard memory management functions with the custom implementations provided by HMM.
+
+    ```bash
+    LD_PRELOAD=./libhmm.so <your_program>
+    ```
+
+    Replace `<your_program>` with the path to the executable you want to run with the HMM library.
+
+2. **Testing**: Test the library with various programs to ensure it works correctly. You can use standard Linux programs like `ls`, `vim`, and `bash`, or write your own test programs.
+
+## Function Descriptions
+
+### `void *HmmAlloc(size_t blockSize)`
+
+Allocates a block of memory of the specified size. If necessary, expands the heap to fulfill the request. Returns a pointer to the allocated memory or `NULL` if the allocation fails.
+
+### `void HmmFree(void *ptr)`
+
+Frees a previously allocated block of memory. Returns the memory to the free list and merges adjacent free blocks.
+
+### `void *HmmCalloc(size_t nmemb, size_t size)`
+
+Allocates memory for an array of `nmemb` elements, each of size `size`, and initializes all bytes to zero. Returns a pointer to the allocated memory or `NULL` if the allocation fails.
+
+### `void *HmmRealloc(void *ptr, size_t size)`
+
+Resizes a previously allocated block of memory to the new size. Copies the old data to the new block if the size is increased. Returns a pointer to the resized memory or `NULL` if the reallocation fails.
+
+### `void *malloc(size_t size)`
+
+Wrapper function that calls `HmmAlloc` to allocate memory.
+
+### `void free(void *ptr)`
+
+Wrapper function that calls `HmmFree` to free memory.
+
+### `void *calloc(size_t nmemb, size_t size)`
+
+Wrapper function that calls `HmmCalloc` to allocate and initialize memory.
+
+### `void *realloc(void *ptr, size_t size)`
+
+Wrapper function that calls `HmmRealloc` to resize memory.
+
+## Error Handling
+
+- **Allocation Failure**: The functions will return `NULL` if the memory allocation fails.
+- **Invalid Pointer**: Freeing an invalid or NULL pointer is safely handled by `HmmFree`.
+
+## Testing
+
+Test the HMM library using a variety of programs and edge cases:
+
+- **Basic Allocation**: Test basic allocation, deallocation, and reallocation.
+- **Edge Cases**: Test with zero-size allocations and large memory requests.
+- **Stress Testing**: Run programs with intensive memory usage to check for stability.
+
+## Contact
+
+For any questions or issues, please contact [baseldawoud2003@gmail.com].
