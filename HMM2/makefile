@@ -1,18 +1,19 @@
+# Makefile for HMM Library
+
 CC = gcc
-CFLAGS = -Wall -fPIC
+CFLAGS = -Wall -Wextra -fPIC
 LDFLAGS = -shared
+TARGET = libhmm.so
+SOURCES = HMM.c
+OBJECTS = $(SOURCES:.c=.o)
 
-# Targets
-all: libhmm.so test_hmm
+all: $(TARGET)
 
-libhmm.so: HMM.o
-	$(CC) $(LDFLAGS) -o $@ $^
+$(TARGET): $(OBJECTS)
+    $(CC) $(LDFLAGS) -o $@ $^
 
-HMM.o: HMM.c heap.h
-	$(CC) $(CFLAGS) -c HMM.c
-
-test_hmm: test_hmm.c libhmm.so
-	$(CC) -o $@ $^ -ldl
+%.o: %.c
+    $(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o *.so test_hmm
+    rm -f $(TARGET) $(OBJECTS)
