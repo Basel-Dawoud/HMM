@@ -1,271 +1,276 @@
-#include <unistd.h>
+/* HMM.c (Functions & APIs) */
+
 #include <stddef.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <assert.h>
 #include <string.h>
+#include <limits.h>
+#include <unistd.h>
+#include "heap.h"
 
-#define PAGE 4096  // Define page size (usually 4KB)
-#define VHEAP_MAX_SIZE (1024 * PAGE)  // Define the maximum size of heap for testing
+/* Declaration of the static array representing the virtual heap */
+static size_t* heapBase = NULL; // Pointer to the base of the virtual heap
+static size_t* programBreak = NULL; // Pointer representing the current end of the heap
 
 /* Global variables for free list */
 fnode *Head = NULL;
 fnode *Tail = NULL;
 
-/* Initialize the heap space using sbrk() */
-void* heapBase = NULL;  // Base address of heap
-void* programBreak = NULL;  // Pointer representing the current end of the heap
+int isHeapFull = 0;
+int isFlistAvailable = 0;
 
-void* initializeHeap() {
-    if (heapBase == NULL) {
-        heapBase = sbrk(VHEAP_MAX_SIZE);
-        if (heapBase == (void*)-1) {
-            perror("sbrk");
-            return NULL; // Error
-        }
-        programBreak = heapBase;
+/* Adjusts the simulated program break */
+void *sbreak(size_t increment) {
+    void* oldProgBreak = sbrk(0);   // Get current program break
+    if (sbrk(increment) == (void*)-1) {
+        return (void*)-1;  // Return error if sbrk fails
     }
-    return heapBase;
+    return oldProgBreak;  // Return old end of heap
 }
 
-/* Adjust the simulated program break */
-void *sbreak(intptr_t increment) {
-    void* oldProgBreak = programBreak;
-    void* newProgBreak = sbrk(increment);
-    if (newProgBreak == (void*)-1) {
-        return (void *)-1; // Return error if sbrk fails
+void *HmmAlloc(size_t blockSize) {
+    if (Head == NULL) {
+        freeListInit();  // Initialize the free list if it is empty
     }
-    programBreak = newProgBreak;
-    return oldProgBreak;
+
+    if (isHeapFull) {
+        return NULL;
+    }
+
+    // Align block size to be a multiple of 8
+    blockSize = (blockSize + 7) & ~7;  // Align the block size to 8 bytes
+    size_t totalSizeNeeded = blockSize + META_DATA_SIZE;   // Calculate total size needed including node overhead
+    fnode* allocBlock = (fnode*)firstFit(totalSizeNeeded);  // Find a suitable block using first-fit strategy
+
+    if (allocBlock == NULL) {
+        size_t pagesNeeded = (totalSizeNeeded + PAGE - 1) / PAGE;  // Calculate pages needed for allocation
+        if (sbreak(pagesNeeded * PAGE) == (void*)-1) {  // Attempt to expand the heap
+            isHeapFull = 1;
+            return NULL; // Allocation failed
+        }
+        int failed = insertend(pagesNeeded);  // Insert the new block into the free list
+        if (failed == -1) return NULL;
+        allocBlock = (fnode*)firstFit(totalSizeNeeded);
+        if (allocBlock == NULL) return NULL;  // Handle failure if no block was found
+    }
+    
+    // Remove block from free list
+    if (allocBlock == Head) {
+        Head = Head->next;  // Update head if the allocated block was the head
+        if (Head) {
+            Head->prev = NULL;  // Update previous pointer of the new head
+        }
+    } else if (allocBlock == Tail) {
+        Tail = Tail->prev;  // Update tail if the allocated block was the tail
+        if (Tail) {
+            Tail->next = NULL;  // Update next pointer of the new tail
+        }
+    } else {
+        if (allocBlock->prev) {
+            allocBlock->prev->next = allocBlock->next;  // Update previous node's next pointer
+        }
+        if (allocBlock->next) {
+            allocBlock->next->prev = allocBlock->prev;  // Update next node's previous pointer
+        }
+    }
+
+    allocBlock->next = NULL;  // Set next pointer of allocated block to NULL
+    allocBlock->prev = NULL;  // Set previous pointer of allocated block to NULL
+
+    allocBlock = (fnode*)((char*)allocBlock + META_DATA_SIZE);  // Adjust the pointer to point to the start of the usable memory
+    return (void*)allocBlock;  // Return the pointer to the allocated memory
 }
 
 /* Initializes the free list */
 void freeListInit(void) {
-    if (initializeHeap() == NULL) {
-        return;  // Initialization failed
-    }
-    Head = (fnode*)programBreak;
-    Head->length = (size_t)sbrk(0) - (size_t)Head; // Set the initial block size
-    Head->prev = NULL;
-    Head->next = NULL;
-    Tail = Head;
-}
-
-/* Adds a new free node after the Tail */
-void insertend(size_t neweSize) {
-    assert(((char*)Tail + Tail->length) < (char*)programBreak);  // Ensure no overflow
-    fnode* newNode = (fnode*)((char*)Tail + Tail->length);
-    newNode->prev = Tail;
-    Tail->next = newNode;
-    Tail = newNode;
-    Tail->next = NULL;
-    Tail->length = neweSize;
-    mergeNodes();
-}
-
-/* This function handles merging of adjacent free nodes */
-void mergeNodes(void) {
-    if (!Head || !(Head->next)) {
-        return; // Nothing to merge
-    }
-
-    fnode* curr = Head;
-    while (curr && curr->next) {
-        if ((char*)curr + curr->length == (char*)curr->next) {
-            curr->length += curr->next->length;
-            curr->next = curr->next->next;
-            if (curr->next) {
-                curr->next->prev = curr;
-            } else {
-                Tail = curr;
-            }
-        } else {
-            curr = curr->next;
+    // Initialize the heap and the free list
+    size_t initialHeapSize = 2 * PAGE;
+    if (heapBase == NULL) {
+        heapBase = (size_t*)sbreak(initialHeapSize);
+        if (heapBase == (void*)-1) {
+            isHeapFull = -1;
+            return;
         }
+        programBreak = heapBase;
     }
+
+    Head = (fnode*)programBreak;  // Set the head of the list to the start of the heap
+    Head->length = PAGE / 8;  // Set the initial block size
+    Head->prev = NULL;  // Set the previous pointer of the head to NULL
+    Head->next = NULL;  // Set the next pointer of the head to NULL
+    Tail = Head;  // Set the tail of the list to the head
+    insertend(1);
+    isFlistAvailable = 1;
 }
 
 /* Adds a new free node after the given node */
 void* addafternode(fnode* node) {
-    char* pose = (char*)node + node->length;
-    fnode* newNode = (fnode*)pose;
-    newNode->next = node->next;
-    newNode->prev = node;
+    size_t* pose = (size_t*)((char*)node + node->length);  // Calculate the position for the new node
+    fnode* newNode = (fnode*)pose;  // Create new node at calculated position
+    newNode->next = node->next;  // Set the next pointer of the new node
+    newNode->prev = node;  // Set the previous pointer of the new node
 
-    if (node->next) {
-        node->next->prev = newNode;
+    if (node->next) { // Ensure node->next is not NULL
+        node->next->prev = newNode;  // Update the previous pointer of the next node
     }
-    node->next = newNode;
-
+    node->next = newNode;  // Set the next pointer of the given node to the new node
     return newNode;
 }
 
 /* Splits a free node if it is larger than the requested block size */
 void split(fnode* node, size_t blockSize) {
-    if (Head == NULL) {
-        freeListInit();
-        return;
+    size_t oldlength = node->length;  // Store the old length of the node
+    size_t minBlockSize = META_DATA_SIZE + 8; // Minimum block size to split
+
+    if ((oldlength - blockSize) >= minBlockSize) {
+        // Adjust the current node's length
+        node->length = blockSize;
+        // Create a new node with the remaining space
+        fnode* newNode = (fnode*)((char*)node + blockSize);
+        newNode->length = oldlength - blockSize;
+        newNode->next = node->next;
+        newNode->prev = node;
+
+        if (node->next) {
+            node->next->prev = newNode;
+        }
+        node->next = newNode;
+
+        // Update the tail if the new node is the new tail
+        if (node == Tail) {
+            Tail = newNode;
+        }
     }
-
-    size_t oldlength = node->length;
-
-    if (blockSize >= oldlength) {
-        return;
-    }
-
-    node->length = blockSize;
-    fnode* newNode = (fnode*)addafternode(node);
-    newNode->length = oldlength - blockSize;
 }
 
 /* Finding a free node that fits the requested block size using the first-fit strategy */
 void *firstFit(size_t blockSize) {
-    fnode* curr = NULL;
-    for (curr = Head; curr != NULL; curr = curr->next) {
+    assert(Head != NULL);
+    fnode* curr = Head;
+    while (curr) {
         if (curr->length >= blockSize) {
             if (curr != Head && curr != Tail) {
-                split(curr, blockSize);
+                split(curr, blockSize);  // Split the node if it is not the head or tail
             }
-            return curr;
+            return curr;  // Return the node that fits the requested block size
         }
+        curr = curr->next;
     }
-    return NULL;
+    return NULL;  // Return NULL if no suitable node is found
 }
 
-void *HmmAlloc(size_t blockSize) {
-    if (Head == NULL) {
-        freeListInit();
-    }
+/* Adds a new free node after the Tail */
+int insertend(int pagesNeeded) {
+    // Ensure that the new node does not exceed the program Break edge
 
-    blockSize = (blockSize + 7) & ~7;  // Align block size to 8 bytes
-    size_t totalSizeNeeded = blockSize + sizeof(fnode);
-    fnode* allocBlock = (fnode*)firstFit(totalSizeNeeded);
+    void* cbp = sbrk(pagesNeeded * PAGE);
+    if (cbp == (void*)-1) return -1;
 
-    if (allocBlock == NULL) {
-        size_t pagesNeeded = (totalSizeNeeded + PAGE - 1) / PAGE;
-        if (sbreak(pagesNeeded * PAGE) == (void*)-1) {
-            return NULL;
-        }
-        insertend(totalSizeNeeded);
-        allocBlock = Tail;
-        assert(allocBlock != NULL);
-        assert(allocBlock->next == NULL);
-    }
+    fnode* newNode = (fnode*)((char*)Tail + Tail->length);  // Position the new node after the tail
+    newNode->prev = Tail;  // Set the previous pointer of the new node to the old tail
+    Tail->next = newNode;  // Set the next pointer of the old tail to the new node
+    Tail = newNode;  // Update the tail to be the new node
+    Tail->next = NULL;  // Set the next pointer of the new tail to NULL
+    /* Set the length of the new node */
+    Tail->length = (size_t)((char*)cbp - (char*)Tail);  // Set the length of the new Tail-node
 
-    if (allocBlock == Head) {
-        Head = Head->next;
-        if (Head) {
-            Head->prev = NULL;
-        }
-    } else if (allocBlock == Tail) {
-        Tail = Tail->prev;
-        if (Tail) {
-            Tail->next = NULL;
-        }
-    } else {
-        allocBlock->prev->next = allocBlock->next;
-        if (allocBlock->next) {
-            allocBlock->next->prev = allocBlock->prev;
-        }
-    }
-
-    allocBlock->next = NULL;
-    allocBlock->prev = NULL;
-
-    allocBlock = (fnode*)((char*)allocBlock + sizeof(fnode));
-    return (void*)allocBlock;
+    mergeNodes();
+    return 0;  // Success
 }
 
 void HmmFree(void *ptr) {
     if (ptr == NULL) {
-        return;
+        return;  // Do nothing if the pointer is NULL
     }
 
-    if (Head == NULL) {
-        freeListInit();
+    if (!isFlistAvailable) return;
+
+    fnode* blockToFree = (fnode*)((char*)ptr - sizeof(fnode));  // Get the free node from the pointer
+
+    // Insert block into the free list
+    blockToFree->next = Head;  // Set the next pointer of the block to the current head
+    blockToFree->prev = NULL;  // Set the previous pointer of the block to NULL
+    if (Head) {
+        Head->prev = blockToFree;  // Update the previous pointer of the old head
     }
+    Head = blockToFree;  // Update the head to the new block
 
-    fnode* blockToFree = (fnode*)((char*)ptr - sizeof(fnode));
-
-    blockToFree->next = Head;
-    blockToFree->prev = NULL;
-    assert(Head != NULL);
-    Head->prev = blockToFree;
-    Head = blockToFree;
-
-    mergeNodes();
+    mergeNodes();  // Merge adjacent free nodes
 }
 
-void *calloc(size_t nmemb, size_t size) {
-    if (nmemb != 0 && size > SIZE_MAX / nmemb) {
-        return NULL;  // Overflow occurred
+/* This function handles merging of adjacent free nodes */
+void mergeNodes(void) {
+    if (!Head || !(Head->next)) {
+        return;  // Nothing to merge
     }
 
-    size_t totalSize = nmemb * size;
+    fnode* curr = Head;
+    while (curr && curr->next) {
+        if ((char*)curr + curr->length == (char*)curr->next) {
+            // Merge adjacent nodes
+            curr->length += curr->next->length;
+            curr->next = curr->next->next;
+            if (curr->next) {
+                curr->next->prev = curr;
+            }
+            else {
+                Tail = curr;  // Update Tail if the last node was merged
+            }
+        } else {
+            curr = curr->next;  // Move to the next node
+        }
+    }
+}
 
-    void *ptr = HmmAlloc(totalSize);
+void *HmmRealloc(void *ptr, size_t blockSize) {
     if (ptr == NULL) {
-        return NULL;  // Allocation failed
+        return HmmAlloc(blockSize);  // Allocate new block if pointer is NULL
     }
 
-    memset(ptr, 0, totalSize);
-    return ptr;
-}
-
-void splitAllocNode(fnode* node, size_t blockSize) {
-    size_t oldSize = node->length;
-    node->length = blockSize + sizeof(fnode);
-    fnode* blockToFree = (fnode*)((char*)node + node->length);
-    blockToFree->length = oldSize - node->length;
-    HmmFree((char*)blockToFree + sizeof(fnode));
-}
-
-void *realloc(void *ptr, size_t size) {
-    if (ptr == NULL) {
-        return HmmAlloc(size);
-    }
-
-    if (size == 0) {
-        HmmFree(ptr);
+    if (blockSize == 0) {
+        HmmFree(ptr);  // Free the block if the requested size is zero
         return NULL;
     }
 
-    size = (size + 7) & ~7;
+    fnode* oldBlock = (fnode*)((char*)ptr - sizeof(fnode));  // Get the old block
+    size_t oldSize = oldBlock->length;
 
-    fnode* node = (fnode*)((char*)ptr - sizeof(fnode));
-    size_t oldSize = node->length - sizeof(fnode);
-
-    if (size < oldSize) {
-        splitAllocNode(node, size);
+    if (blockSize <= oldSize) {
+        // Block is large enough; split if there is excess space
+        split(oldBlock, blockSize);
         return ptr;
     }
 
-    if (size > oldSize) {
-        size_t additional_size = size - oldSize;
-
-        for (fnode* curr = Head; curr != NULL; curr = curr->next) {
-            if (curr->length >= additional_size) {
-                if ((char*)curr == (char*)node + node->length) {
-                    if (curr->length > (additional_size + sizeof(fnode))) {
-                        split(curr, additional_size);
-                        return ptr;
-                    } else if (curr->length == (additional_size + sizeof(fnode))) {
-                        return ptr;
-                    }
-                }
-            }
-        }
-
-        fnode* newBlock = (fnode*)firstFit(size + sizeof(fnode));
-        if (newBlock == NULL) {
-            return NULL;
-        }
-
-        void* dest = (char*)newBlock + sizeof(fnode);
-        memcpy(dest, ptr, oldSize);
-
-        HmmFree(ptr);
-        return dest;
+    // Allocate new block
+    void* newPtr = HmmAlloc(blockSize);
+    if (newPtr == NULL) {
+        return NULL;  // Allocation failed
     }
 
-    return ptr;
+    // Copy data from old block to new block
+    memcpy(newPtr, ptr, oldSize);
+
+    // Free the old block
+    HmmFree(ptr);
+
+    return newPtr;
+}
+
+// Wrapper functions to replace the libc ABIS...
+
+void* malloc(size_t size) {
+    return HmmAlloc(size);
+}
+
+void free(void* ptr) {
+    HmmFree(ptr);
+}
+
+void* calloc(size_t nmemb, size_t size) {
+    return HmmCalloc(nmemb, size);
+}
+
+void* realloc(void* ptr, size_t size) {
+    return HmmRealloc(ptr, size);
 }
